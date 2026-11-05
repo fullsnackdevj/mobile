@@ -1,0 +1,170 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { FavItem, HistoryEntry, Menu, MenuItem, Mood, Order, OrderItem, Person, SavedOrder, Taste } from './types';
+import { TABLE } from './types';
+
+export type Settings = { theme: 'light' | 'dark' | 'auto'; energy: 'kcal' | 'kJ'; ratingReminders: boolean };
+export type Privacy = { savePhotos: boolean; learn: boolean };
+export type Profile = { name: string; email: string; guest: boolean };
+
+const defaultTaste: Taste = { love: [], avoid: [], diet: ['None'], allergy: ['None'], spice: 'Mild', budget: '₱200', goal: [] };
+const emptyOrder = (people: Person[] = []): Order => ({ restaurant: '', menuId: '', price: true, split: false, people, items: [], nextId: 1 });
+
+type State = {
+  hydrated: boolean;
+  profile: Profile | null;
+  onboarded: boolean;
+  taste: Taste;
+  dislikes: string[];
+  settings: Settings;
+  privacy: Privacy;
+  menus: Menu[]; // every scanned menu; `saved` ones show under Saved menus
+  currentMenuId: string | null;
+  mood: Mood;
+  favorites: FavItem[];
+  favRestaurants: string[];
+  history: HistoryEntry[];
+  order: Order;
+  savedOrders: SavedOrder[];
+  // Not persisted: photos captured in the current scan.
+  photos: string[];
+};
+
+type Actions = {
+  set: (p: Partial<State>) => void;
+  setTaste: (p: Partial<Taste>) => void;
+  setSettings: (p: Partial<Settings>) => void;
+  setPrivacy: (p: Partial<Privacy>) => void;
+  addMenu: (m: Menu) => void;
+  updateMenu: (id: string, p: Partial<Menu>) => void;
+  updateItem: (menuId: string, itemId: string, p: Partial<MenuItem>) => void;
+  addItem: (menuId: string, item: MenuItem) => void;
+  deleteMenu: (id: string) => void;
+  toggleFav: (f: FavItem) => void;
+  toggleFavRestaurant: (name: string) => void;
+  addHistory: (h: HistoryEntry) => void;
+  updateHistory: (id: string, p: Partial<HistoryEntry>) => void;
+  deleteHistory: (id: string) => void;
+  startOrder: (restaurant: string, menuId: string) => void;
+  setOrder: (p: Partial<Order>) => void;
+  bumpOrderItem: (who: string, name: string, price: number | null, d: number, itemId?: string) => void;
+  changeQty: (id: number, d: number) => void;
+  addPerson: (p: Person) => void;
+  saveOrderSnapshot: () => string;
+  reuseOrder: (id: string, price: boolean) => void;
+  deleteSavedOrder: (id: string) => void;
+  wipe: () => void;
+};
+
+const initial = (): State => ({
+  hydrated: false,
+  profile: null,
+  onboarded: false,
+  taste: defaultTaste,
+  dislikes: [],
+  settings: { theme: 'light', energy: 'kcal', ratingReminders: true },
+  privacy: { savePhotos: false, learn: true },
+  menus: [],
+  currentMenuId: null,
+  mood: { vibe: 'Tired', budget: '₱200', mode: 'Both' },
+  favorites: [],
+  favRestaurants: [],
+  history: [],
+  order: emptyOrder(),
+  savedOrders: [],
+  photos: [],
+});
+
+export const useStore = create<State & Actions>()(
+  persist(
+    (set, get) => ({
+      ...initial(),
+      set: (p) => set(p),
+      setTaste: (p) => set({ taste: { ...get().taste, ...p } }),
+      setSettings: (p) => set({ settings: { ...get().settings, ...p } }),
+      setPrivacy: (p) => set({ privacy: { ...get().privacy, ...p } }),
+      addMenu: (m) => set({ menus: [m, ...get().menus.filter((x) => x.id !== m.id)], currentMenuId: m.id }),
+      updateMenu: (id, p) => set({ menus: get().menus.map((m) => (m.id === id ? { ...m, ...p } : m)) }),
+      updateItem: (menuId, itemId, p) =>
+        set({ menus: get().menus.map((m) => (m.id === menuId ? { ...m, items: m.items.map((i) => (i.id === itemId ? { ...i, ...p } : i)) } : m)) }),
+      addItem: (menuId, item) => set({ menus: get().menus.map((m) => (m.id === menuId ? { ...m, items: [...m.items, item] } : m)) }),
+      deleteMenu: (id) => set({ menus: get().menus.filter((m) => m.id !== id), currentMenuId: get().currentMenuId === id ? null : get().currentMenuId }),
+      toggleFav: (f) => {
+        const has = get().favorites.some((x) => x.key === f.key);
+        set({ favorites: has ? get().favorites.filter((x) => x.key !== f.key) : [f, ...get().favorites] });
+      },
+      toggleFavRestaurant: (name) => {
+        const has = get().favRestaurants.includes(name);
+        set({ favRestaurants: has ? get().favRestaurants.filter((x) => x !== name) : [name, ...get().favRestaurants] });
+      },
+      addHistory: (h) => set({ history: [h, ...get().history] }),
+      updateHistory: (id, p) => set({ history: get().history.map((h) => (h.id === id ? { ...h, ...p } : h)) }),
+      deleteHistory: (id) => set({ history: get().history.filter((h) => h.id !== id) }),
+      startOrder: (restaurant, menuId) => {
+        const o = get().order;
+        if (o.menuId === menuId && o.restaurant === restaurant) return;
+        const me = get().profile?.name || 'Me';
+        const avoids = get().taste.allergy.filter((a) => a !== 'None');
+        set({ order: { ...emptyOrder([{ name: me, avoids: avoids.length ? avoids : ['None'] }]), restaurant, menuId, price: o.price } });
+      },
+      setOrder: (p) => set({ order: { ...get().order, ...p } }),
+      bumpOrderItem: (who, name, price, d, itemId) => {
+        const o = get().order;
+        const ex = o.items.find((x) => x.who === who && x.name === name);
+        let items: OrderItem[];
+        let nextId = o.nextId;
+        if (ex) items = o.items.map((x) => (x === ex ? { ...x, qty: x.qty + d } : x)).filter((x) => x.qty > 0);
+        else if (d > 0) items = [...o.items, { id: nextId++, who, name, price, qty: 1, note: '', itemId }];
+        else items = o.items;
+        set({ order: { ...o, items, nextId } });
+      },
+      changeQty: (id, d) => {
+        const o = get().order;
+        set({ order: { ...o, items: o.items.map((x) => (x.id === id ? { ...x, qty: x.qty + d } : x)).filter((x) => x.qty > 0) } });
+      },
+      addPerson: (p) => {
+        const o = get().order;
+        if (o.people.some((x) => x.name.toLowerCase() === p.name.toLowerCase()) || p.name === TABLE) return;
+        set({ order: { ...o, people: [...o.people, p] } });
+      },
+      saveOrderSnapshot: () => {
+        const o = get().order;
+        const rec: SavedOrder = { id: 'o' + Date.now(), shop: o.restaurant || 'Order', date: Date.now(), price: o.price, people: o.people, items: o.items };
+        set({ savedOrders: [rec, ...get().savedOrders] });
+        return rec.id;
+      },
+      reuseOrder: (id, price) => {
+        const r = get().savedOrders.find((x) => x.id === id);
+        if (!r) return;
+        let nextId = 1;
+        const items = r.items.map((x) => ({ ...x, id: nextId++ }));
+        set({ order: { restaurant: r.shop, menuId: get().menus.find((m) => m.restaurant === r.shop)?.id || '', price, split: false, people: r.people, items, nextId } });
+      },
+      deleteSavedOrder: (id) => set({ savedOrders: get().savedOrders.filter((x) => x.id !== id) }),
+      wipe: () => set({ ...initial(), hydrated: true }),
+    }),
+    {
+      name: 'pickybara.v1',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: ({ hydrated, photos, ...rest }) => rest,
+      onRehydrateStorage: () => () => useStore.setState({ hydrated: true }),
+    }
+  )
+);
+
+export const useCurrentMenu = () => useStore((s) => s.menus.find((m) => m.id === s.currentMenuId) ?? null);
+
+export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+export const peso = (n: number | null | undefined) => (n == null ? '₱?' : '₱' + Math.round(n).toLocaleString('en-US'));
+
+export function shortDate(ts: number) {
+  const d = new Date(ts);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
