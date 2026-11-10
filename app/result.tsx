@@ -1,26 +1,38 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Capy } from '../src/components/Capy';
 import { Icon } from '../src/components/Icon';
 import { Banner, Btn, Card, Empty, H2, IconBtn, Photo, Pill, Row, S, Screen, T, Tile, TopBar, XS } from '../src/components/ui';
 import type { Scored } from '../src/recommend';
-import { peso, useStore } from '../src/store';
+import { useStore } from '../src/store';
 import { useTheme } from '../src/theme';
 import { usePicks } from '../src/usePicks';
+import { Price } from '../src/components/Price';
+import { moneyWithApprox } from '../src/money';
+
+// The last top pick shown per menu, so opening the picks again shows something different.
+const lastTop: Record<string, string> = {};
 
 export default function Result() {
   const c = useTheme();
-  const { menu, picks, mood } = usePicks();
+  const menuId = useStore((s) => s.currentMenuId);
+  const [vary, setVary] = useState(() => ({ seed: Math.random(), avoid: menuId ? lastTop[menuId] : undefined }));
+  const { menu, picks, mood } = usePicks(vary);
   const favorites = useStore((s) => s.favorites);
   const toggleFav = useStore((s) => s.toggleFav);
   const [surprise, setSurprise] = useState<Scored | null>(null);
+
+  const shownId = (surprise ?? picks?.top)?.item.id;
+  useEffect(() => {
+    if (menu && shownId) lastTop[menu.id] = shownId;
+  }, [menu?.id, shownId]);
 
   if (!menu || !picks) return null;
   const top = surprise ?? picks.top;
   if (!top) {
     return (
-      <Screen top={<TopBar sub={`${menu.restaurant} · ${mood.vibe}`} />}>
+      <Screen top={<TopBar sub={`${menu.restaurant}${mood.vibes.length ? ' · ' + mood.vibes.join(', ') : ''}`} />}>
         <Empty mood="surprised" text="Nothing on this menu fits your profile and filters." cta="Change mood" onCta={() => router.back()} />
       </Screen>
     );
@@ -51,7 +63,7 @@ export default function Result() {
             {s.item.name}
           </T>
           <XS>
-            {peso(s.item.price)} · {s.match}% match
+            {moneyWithApprox(s.item.price, menu)} · {s.match}% match
           </XS>
         </View>
         <Icon n="chevron" s={20} color={c.ink} />
@@ -63,7 +75,7 @@ export default function Result() {
     <Screen
       top={
         <TopBar
-          sub={`${menu.restaurant} · ${mood.vibe}`}
+          sub={`${menu.restaurant}${mood.vibes.length ? ' · ' + mood.vibes.join(', ') : ''}`}
           right={<IconBtn n="flag" size={22} label="Report incorrect info" onPress={() => router.push({ pathname: '/report', params: { restaurant: menu.restaurant, item: top.item.name } })} />}
         />
       }
@@ -92,7 +104,7 @@ export default function Result() {
         <View style={{ gap: 4, paddingHorizontal: 4 }}>
           <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <H2 style={{ flex: 1 }}>{top.item.name}</H2>
-            <H2>{peso(top.item.price)}</H2>
+            <Price n={top.item.price} p={menu} as={H2} />
           </Row>
           <S>{top.item.description || top.reasons[0] || 'A solid pick from this menu.'}</S>
         </View>
@@ -114,8 +126,16 @@ export default function Result() {
       {drink ? mini(drink, 'DRINK PAIRING') : null}
       <Row gap={10}>
         <Tile icon="layers" label="More" onPress={() => router.push('/ranked')} />
+        <Tile
+          icon="refresh"
+          label="Another"
+          onPress={() => {
+            setSurprise(null);
+            setVary({ seed: Math.random(), avoid: top.item.id });
+          }}
+        />
         <Tile icon="sparkle" label="Surprise" onPress={surpriseMe} />
-        <Tile icon="sliders" label="Mood" onPress={() => router.back()} />
+        <Tile icon="sliders" label="Mood" onPress={() => router.navigate('/mood')} />
       </Row>
     </Screen>
   );

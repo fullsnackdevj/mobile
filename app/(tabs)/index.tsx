@@ -5,6 +5,8 @@ import { Icon, IconName } from '../../src/components/Icon';
 import { Btn, Card, H2, H3, Label, Photo, Row, S, Screen, T, Tile, XS } from '../../src/components/ui';
 import { pickFromGallery, useQuota } from '../../src/scan';
 import { useStore } from '../../src/store';
+import { allSpots } from '../../src/spots';
+import { SpotImage } from '../../src/components/SpotImage';
 import { useTheme } from '../../src/theme';
 
 const QUICK: [string, IconName, 'p' | 'g'][] = [
@@ -32,11 +34,11 @@ export default function Home() {
   const q = useQuota();
 
   // One card per restaurant, most recent first, with the last thing picked there.
-  const spots = Array.from(new Map(menus.map((m) => [m.restaurant, m])).values()).slice(0, 8);
-  const lastPick = (r: string) => history.find((h) => h.restaurant === r)?.itemName;
+  const places = useStore((s) => s.places);
+  const spots = allSpots(places, menus, history).slice(0, 8);
 
   function quickMood(vibe: string) {
-    set({ mood: { ...mood, vibe } });
+    set({ mood: { ...mood, vibes: [vibe] } });
     if (currentMenuId && menus.some((m) => m.id === currentMenuId)) router.push('/mood');
     else router.push('/camera');
   }
@@ -90,23 +92,25 @@ export default function Home() {
       <View style={{ gap: 10 }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <H3>Recent spots</H3>
-          {spots.length ? (
-            <Pressable onPress={() => router.push('/saved-menus')}>
-              <S b style={{ color: c.primary, textDecorationLine: 'underline' }}>
-                See all
-              </S>
-            </Pressable>
-          ) : null}
+          <Pressable accessibilityRole="link" onPress={() => router.push('/spots')}>
+            <S b style={{ color: c.primary, textDecorationLine: 'underline' }}>
+              {spots.length ? 'See all' : 'Add a spot'}
+            </S>
+          </Pressable>
         </Row>
         {spots.length ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 4, gap: 10 }}>
-            {spots.map((m) => (
-              <Card key={m.id} onPress={() => router.push({ pathname: '/recents/[name]', params: { name: m.restaurant } })} style={{ width: 150, padding: 12, gap: 8 }}>
-                <Photo h={64} r={14} icon={m.items.every((i) => i.isDrink) ? 'cup' : 'utensils'} />
+            {spots.map((sp) => (
+              <Card key={sp.name} onPress={() => router.push({ pathname: '/recents/[name]', params: { name: sp.name } })} style={{ width: 150, padding: 12, gap: 8 }}>
+                {sp.place?.photo ? (
+                  <SpotImage uri={sp.place.photo} focus={sp.place.photoFocus} w={126} h={64} r={14} />
+                ) : (
+                  <Photo h={64} r={14} icon={sp.menu?.items.length && sp.menu.items.every((i) => i.isDrink) ? 'cup' : 'utensils'} />
+                )}
                 <T b numberOfLines={1}>
-                  {m.restaurant}
+                  {sp.name}
                 </T>
-                <XS numberOfLines={1}>{lastPick(m.restaurant) ?? `${m.items.length} items`}</XS>
+                <XS numberOfLines={1}>{sp.lastVisit?.itemName ?? (sp.menu ? `${sp.menu.items.length} items` : 'No menu yet')}</XS>
               </Card>
             ))}
           </ScrollView>

@@ -61,7 +61,7 @@ export default function Scanning() {
         router.replace({ pathname: '/scan-error', params: { code: 'unreadable' } });
         return;
       }
-      addMenu(menuFromScan(r.restaurant, r.language, r.items, r.demo, savePhotos ? photos : undefined));
+      addMenu(menuFromScan(scanPrefs.spot || r.restaurant, r.language, r.items, r.demo, savePhotos ? photos : undefined, r.currency || 'PHP', r.rateToPHP ?? null));
       router.replace('/scan-review');
     } catch (e) {
       const err = e as ApiError;

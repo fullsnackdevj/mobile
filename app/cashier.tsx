@@ -2,10 +2,12 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Icon } from '../src/components/Icon';
-import { Btn, Card, H1, H2, H3, Label, Row, S, Screen, Segment, Sheet, T, TopBar } from '../src/components/ui';
-import { peso, useStore } from '../src/store';
+import { Btn, Card, H1, H2, H3, Label, Row, S, Screen, Segment, Sheet, Switch, T, TopBar } from '../src/components/ui';
+import { useStore } from '../src/store';
 import { fonts, useTheme } from '../src/theme';
 import { TABLE } from '../src/types';
+import { Price } from '../src/components/Price';
+import { money } from '../src/money';
 
 type Line = { key: string; name: string; qty: number; amt: number; note: string };
 
@@ -14,6 +16,7 @@ export default function Cashier() {
   const order = useStore((s) => s.order);
   const setOrder = useStore((s) => s.setOrder);
   const save = useStore((s) => s.saveOrderSnapshot);
+  const clearOrder = useStore((s) => s.clearOrder);
   const [mode, setMode] = useState<'Combined' | 'By person'>('Combined');
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [ask, setAsk] = useState(false);
@@ -40,9 +43,11 @@ export default function Cashier() {
       .filter((g) => g.rows.length);
   }
 
+  // Whether it's saved or not, the order is finished: empty the list so it can't be saved twice.
   const leave = () => {
     setAsk(false);
     router.navigate('/(tabs)/history');
+    setTimeout(clearOrder, 0); // after leaving, so this screen doesn't flash empty
   };
 
   return (
@@ -55,7 +60,7 @@ export default function Cashier() {
           {order.price ? (
             <Row style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
               <T b>Total</T>
-              <H1>{peso(total)}</H1>
+              <Price n={total} p={order} as={H1} />
             </Row>
           ) : null}
           <Btn title="Done" onPress={() => setAsk(true)} />
@@ -66,14 +71,17 @@ export default function Cashier() {
         <View style={{ flex: 1 }}>
           <Segment options={['Combined', 'By person'] as ('Combined' | 'By person')[]} value={mode} onChange={setMode} />
         </View>
-        <Btn kind="sec" sm title={order.price ? 'Hide prices' : 'Show prices'} onPress={() => setOrder({ price: !order.price })} />
+        <Row gap={8}>
+          <S b>Prices</S>
+          <Switch label="Show prices" on={!!order.price} onPress={() => setOrder({ price: !order.price })} />
+        </Row>
       </Row>
       {groups.map((g) => (
         <View key={g.title || 'all'} style={{ gap: 8 }}>
           {g.title ? (
             <Row style={{ justifyContent: 'space-between' }}>
               <Label style={{ marginBottom: 0, color: c.muted }}>{g.title}</Label>
-              {order.price ? <H3>{peso(g.sub)}</H3> : null}
+              {order.price ? <H3>{money(g.sub, order)}</H3> : null}
             </Row>
           ) : null}
           <Card>
@@ -95,7 +103,7 @@ export default function Cashier() {
                     {r.note ? <S b>{r.note}</S> : null}
                   </View>
                   <H2>×{r.qty}</H2>
-                  {order.price ? <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 16, color: c.ink, minWidth: 54, textAlign: 'right' }}>{peso(r.amt)}</Text> : null}
+                  {order.price ? <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 16, color: c.ink, minWidth: 54, textAlign: 'right' }}>{money(r.amt, order)}</Text> : null}
                 </Pressable>
               );
             })}

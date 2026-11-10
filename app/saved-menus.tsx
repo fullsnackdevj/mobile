@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { Btn, Card, Empty, Field, H2, IconBtn, Photo, Row, Screen, Sheet, T, TopBar, XS } from '../src/components/ui';
 import { shortDate, useStore } from '../src/store';
 
 export default function SavedMenus() {
-  const menus = useStore((s) => s.menus.filter((m) => m.saved));
+  const all = useStore((s) => s.menus);
+  // Filter outside the store selector: a new array from the selector each render makes React loop and crash.
+  const menus = useMemo(() => all.filter((m) => m.saved), [all]);
   const set = useStore((s) => s.set);
   const updateMenu = useStore((s) => s.updateMenu);
   const deleteMenu = useStore((s) => s.deleteMenu);
@@ -16,7 +18,7 @@ export default function SavedMenus() {
 
   function use(id: string) {
     set({ currentMenuId: id });
-    router.push('/mood');
+    router.push({ pathname: '/menu/[id]', params: { id } });
   }
 
   return (

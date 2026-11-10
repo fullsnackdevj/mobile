@@ -40,6 +40,10 @@ export type Menu = {
   items: MenuItem[];
   saved: boolean;
   demo?: boolean;
+  /** ISO code of the menu's prices (missing on older menus = PHP). */
+  currency?: string;
+  /** Pesos per 1 unit of `currency` on the day it was scanned; null if unknown. */
+  rateToPHP?: number | null;
   photos?: string[];
 };
 
@@ -53,7 +57,8 @@ export type Taste = {
   goal: string[];
 };
 
-export type Mood = { vibe: string; budget: string; mode: 'Food' | 'Drinks' | 'Both' };
+/** vibes: any number of picked vibes (empty = no preference). */
+export type Mood = { vibes: string[]; budget: string; mode: 'Food' | 'Drinks' | 'Both' };
 
 export type FavItem = { key: string; name: string; restaurant: string; price: number | null; menuId: string; itemId: string };
 
@@ -71,6 +76,22 @@ export type HistoryEntry = {
   note: string;
 };
 
+export type PhotoFocus = { x: number; y: number; zoom: number };
+
+/** A restaurant, cafe or shop you've saved. Menus and history link to it by name. */
+export type Place = {
+  id: string;
+  name: string;
+  photo?: string; // a file saved inside the app
+  /** Which part of the photo to show: centre point (0–1 across and down) and zoom (1 = fill). */
+  photoFocus?: PhotoFocus;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  notes?: string;
+  createdAt: number;
+};
+
 export type Person = { name: string; avoids: string[] };
 export type OrderItem = { id: number; who: string; name: string; price: number | null; qty: number; note: string; itemId?: string };
 export type Order = {
@@ -81,7 +102,9 @@ export type Order = {
   people: Person[];
   items: OrderItem[];
   nextId: number;
+  currency?: string;
+  rateToPHP?: number | null;
 };
-export type SavedOrder = { id: string; shop: string; date: number; price: boolean; people: Person[]; items: OrderItem[] };
+export type SavedOrder = { id: string; shop: string; date: number; price: boolean; people: Person[]; items: OrderItem[]; currency?: string; rateToPHP?: number | null };
 
 export const TABLE = 'Table';

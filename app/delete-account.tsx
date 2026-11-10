@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { api } from '../src/api';
+import { api, resetDevice } from '../src/api';
 import { Capy } from '../src/components/Capy';
 import { Banner, Btn, Card, Field, Label, ListRow, Row, Screen, T, TopBar } from '../src/components/ui';
 import { cancelAllReminders } from '../src/notify';
@@ -21,6 +21,7 @@ export default function DeleteAccount() {
     setBusy(true);
     // Server only holds the scan counter for this device; local data is the rest.
     await api.deleteData().catch(() => {});
+    await resetDevice().catch(() => {});
     await cancelAllReminders().catch(() => {});
     wipe();
     if (router.canDismiss()) router.dismissAll();

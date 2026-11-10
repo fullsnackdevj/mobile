@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { Icon } from '../../src/components/Icon';
 import { Banner, Btn, Card, H1, H2, H3, IconBtn, ListRow, Photo, Pill, Row, S, Screen, T, XS } from '../../src/components/ui';
-import { peso, useStore } from '../../src/store';
+import { useStore } from '../../src/store';
 import { useTheme } from '../../src/theme';
 import { usePicks } from '../../src/usePicks';
+import { Price } from '../../src/components/Price';
 
 const SPICE = ['No spice', 'Mild spice', 'Medium spice', 'Hot'];
 
@@ -56,7 +57,7 @@ export default function ItemDetail() {
       <View style={{ gap: 4 }}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <H1 style={{ fontSize: 26, lineHeight: 30, flex: 1 }}>{item.name}</H1>
-          <H2>{peso(item.price)}</H2>
+          <Price n={item.price} p={menu} as={H2} />
         </Row>
         <S>
           {menu.restaurant}
@@ -132,7 +133,12 @@ export default function ItemDetail() {
             <H3 style={{ flex: 1 }}>Ingredients</H3>
             <Icon n="down" s={20} color={c.ink} />
           </ListRow>
-          {ing ? <S style={{ paddingHorizontal: 16, paddingBottom: 16 }}>{item.ingredients.join(', ')}.</S> : null}
+          {ing ? (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 6 }}>
+              <S>{item.ingredients.join(', ')}.</S>
+              <XS>Estimated from a typical recipe unless the menu lists them.</XS>
+            </View>
+          ) : null}
         </Card>
       ) : null}
       <Btn kind="sec" sm icon="flag" title="Report info" onPress={() => router.push({ pathname: '/report', params: { restaurant: menu.restaurant, item: item.name } })} />

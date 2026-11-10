@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,9 @@ const glass = 'rgba(255,255,255,0.14)';
 
 export default function Camera() {
   const ins = useSafeAreaInsets();
+  // Opened from a spot's page? Then the menu belongs to that spot; otherwise use the name on the menu.
+  const { spot } = useLocalSearchParams<{ spot?: string }>();
+  scanPrefs.spot = spot || undefined;
   const [perm, request] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
   const set = useStore((s) => s.set);

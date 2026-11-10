@@ -2,9 +2,10 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 import { Icon } from '../src/components/Icon';
 import { Card, Photo, Pill, Row, Screen, T, TopBar, XS } from '../src/components/ui';
-import { peso } from '../src/store';
+
 import { useTheme } from '../src/theme';
 import { usePicks } from '../src/usePicks';
+import { moneyWithApprox } from '../src/money';
 
 export default function Ranked() {
   const c = useTheme();
@@ -21,7 +22,7 @@ export default function Ranked() {
                 {i + 1}. {s.item.name}
               </T>
               <XS>
-                {peso(s.item.price)} · {s.reasons[0] ?? s.item.category}
+                {moneyWithApprox(s.item.price, menu)} · {s.reasons[0] ?? s.item.category}
               </XS>
               {s.allergyHits.length ? <Pill kind="w" icon="warn" label={s.allergyHits.join(', ')} style={{ marginTop: 4 }} /> : null}
             </View>

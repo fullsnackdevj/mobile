@@ -225,7 +225,7 @@ export function Pill({ label, kind, icon, style }: { label: string; kind?: 'g' |
   );
 }
 
-export function Card({ children, style, onPress, flat }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void; flat?: boolean }) {
+export function Card({ children, style, onPress, onLongPress, flat }: { children: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void; onLongPress?: () => void; flat?: boolean }) {
   const c = useTheme();
   const base: ViewStyle = {
     backgroundColor: c.card,
@@ -240,7 +240,7 @@ export function Card({ children, style, onPress, flat }: { children: ReactNode; 
   };
   if (onPress)
     return (
-      <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [base, style, pressed && { opacity: 0.85 }]}>
+      <Pressable accessibilityRole="button" onPress={onPress} onLongPress={onLongPress} style={({ pressed }) => [base, style, pressed && { opacity: 0.85 }]}>
         {children}
       </Pressable>
     );
@@ -323,7 +323,7 @@ export function TopBar({ title, sub, back = true, onBack, right, big }: { title?
         {big ? <H1>{title}</H1> : title ? <H2 numberOfLines={1}>{title}</H2> : null}
         {sub ? <XS b={!title} style={!title ? { color: c.muted } : undefined}>{sub}</XS> : null}
       </View>
-      {right}
+      {right ? <View style={{ alignSelf: 'center' }}>{right}</View> : null}
     </View>
   );
 }

@@ -5,7 +5,8 @@ import { Capy } from '../src/components/Capy';
 import { RouteSheet } from '../src/components/RouteSheet';
 import { Btn, Card, H2, Row, S, T } from '../src/components/ui';
 import { scheduleRating } from '../src/notify';
-import { peso, uid, useCurrentMenu, useStore } from '../src/store';
+import { uid, useCurrentMenu, useStore } from '../src/store';
+import { moneyWithApprox } from '../src/money';
 
 /** "Great pick!" — records the pick in History and the order list. Pickybara never places orders. */
 export default function Picked() {
@@ -56,7 +57,7 @@ export default function Picked() {
             <T b style={{ flex: 1 }}>
               {i.name}
             </T>
-            <T b>{peso(i.price)}</T>
+            <T b>{moneyWithApprox(i.price, menu)}</T>
           </Row>
         ))}
       </Card>

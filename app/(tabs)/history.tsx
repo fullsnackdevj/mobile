@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Icon } from '../../src/components/Icon';
 import { Btn, Card, Chip, Empty, IconBtn, Label, Photo, Row, S, Screen, T, TopBar } from '../../src/components/ui';
-import { peso, shortDate, useStore } from '../../src/store';
+import { shortDate, useStore } from '../../src/store';
 import { useTheme } from '../../src/theme';
 import type { HistoryEntry } from '../../src/types';
+import { money } from '../../src/money';
 
 const FILTERS = ['All', 'Liked', 'Disliked', 'Not rated'] as const;
 
@@ -57,7 +58,7 @@ export default function History() {
                       {shortDate(o.date)} · {o.people.length} {o.people.length === 1 ? 'person' : 'people'} · {n} items
                     </S>
                   </View>
-                  <T b>{peso(total)}</T>
+                  <T b>{money(total, o)}</T>
                 </Row>
                 <Row gap={8}>
                   <Btn kind="soft" sm grow title="Open" onPress={() => router.push({ pathname: '/saved-order/[id]', params: { id: o.id } })} />
@@ -84,7 +85,7 @@ export default function History() {
                     <S>{[r.itemName, ...r.extras].join(', ')}</S>
                   </View>
                   <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                    <T b>{peso(r.price)}</T>
+                    <T b>{money(r.price, menus.find((m) => m.id === r.menuId))}</T>
                     <View accessibilityLabel={r.rating === 1 ? 'Liked' : r.rating === -1 ? 'Disliked' : 'Not rated'}>
                       <Icon n={r.rating === -1 ? 'thumbdown' : 'thumbup'} s={20} color={col} fill={r.rating !== 0} />
                     </View>

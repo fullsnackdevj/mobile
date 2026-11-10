@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 import { Capy } from '../src/components/Capy';
 import { IconName } from '../src/components/Icon';
-import { Btn, H1, Label, Row, Screen, Segment, Toggle, TopBar } from '../src/components/ui';
+import { Btn, H1, Label, Row, S, Screen, Segment, Toggle, TopBar } from '../src/components/ui';
 import { useStore } from '../src/store';
 import type { Mood } from '../src/types';
 
@@ -31,18 +31,28 @@ export default function MoodPicker() {
       gap={22}
       foot={
         <>
-          <Btn title="Pick for me" onPress={() => router.push('/result')} />
-          <Btn kind="txt" title="Skip" onPress={() => router.push('/result')} />
+          <Btn title="Pick for me" onPress={() => router.navigate('/result')} />
+          <Btn kind="txt" title="Skip" onPress={() => router.navigate('/result')} />
         </>
       }
     >
       <Row gap={14}>
         <Capy mood="happy" size={84} />
-        <H1 style={{ flex: 1 }}>What's the vibe?</H1>
+        <View style={{ flex: 1, gap: 4 }}>
+          <H1>What's the vibe?</H1>
+          <S>Pick as many as you like.</S>
+        </View>
       </Row>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {VIBES.map(([label, icon]) => (
-          <Toggle key={label} label={label} icon={icon} on={mood.vibe === label} onPress={() => upd({ vibe: label })} style={{ minHeight: 52 }} />
+          <Toggle
+            key={label}
+            label={label}
+            icon={icon}
+            on={mood.vibes.includes(label)}
+            onPress={() => upd({ vibes: mood.vibes.includes(label) ? mood.vibes.filter((v) => v !== label) : [...mood.vibes, label] })}
+            style={{ minHeight: 52 }}
+          />
         ))}
       </View>
       <View style={{ gap: 10 }}>

@@ -4,9 +4,10 @@ import { ScrollView, View } from 'react-native';
 import { Icon } from '../src/components/Icon';
 import { Banner, Btn, Card, Empty, IconBtn, Label, ListRow, Row, Screen, T, Toggle, TopBar } from '../src/components/ui';
 import { conflictsWithPerson, recommend } from '../src/recommend';
-import { peso, useStore } from '../src/store';
+import { useStore } from '../src/store';
 import { useTheme } from '../src/theme';
 import { TABLE } from '../src/types';
+import { money } from '../src/money';
 
 export default function AddItems() {
   const c = useTheme();
@@ -37,7 +38,7 @@ export default function AddItems() {
   function pickFor() {
     const isMe = who === order.people[0]?.name;
     // For the main user use their full taste profile; for friends, just avoid their list.
-    const ranked = isMe ? recommend(menu!.items, taste, dislikes, mood, history, true).ranked.map((s) => s.item) : menu!.items.filter((i) => !i.isDrink);
+    const ranked = isMe ? recommend(menu!.items, taste, dislikes, mood, history, true, menu).ranked.map((s) => s.item) : menu!.items.filter((i) => !i.isDrink);
     const p = ranked.find((i) => !conflictsWithPerson(i, person) && !order.items.some((x) => x.who === who && x.name === i.name));
     if (!p) return setMsg(`Nothing here fits ${who}'s list.`);
     bump(who, p.name, p.price, 1, p.id);
@@ -90,7 +91,7 @@ export default function AddItems() {
                 <T b style={{ flex: 1 }}>
                   {i.name}
                 </T>
-                <T b>{peso(i.price)}</T>
+                <T b>{money(i.price, menu)}</T>
                 {q === 0 ? (
                   <IconBtn n="plus" size={20} color={c.tintInk} label={`Add ${i.name}`} style={{ backgroundColor: c.tint }} onPress={() => bump(who, i.name, i.price, 1, i.id)} />
                 ) : (

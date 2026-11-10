@@ -2,8 +2,9 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { Card, Empty, Field, IconBtn, Photo, Row, Screen, Segment, T, TopBar, XS } from '../../src/components/ui';
-import { peso, useStore } from '../../src/store';
+import { useStore } from '../../src/store';
 import { useTheme } from '../../src/theme';
+import { money } from '../../src/money';
 
 export default function Favorites() {
   const c = useTheme();
@@ -40,7 +41,7 @@ export default function Favorites() {
                       <T b>{f.name}</T>
                       <XS>{f.restaurant}</XS>
                     </View>
-                    <T b>{peso(f.price)}</T>
+                    <T b>{money(f.price, menus.find((m) => m.id === f.menuId))}</T>
                   </Row>
                   {exists ? (
                     <IconBtn

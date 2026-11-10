@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.pickybara.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Pickybara uses your camera to read menus.",
-        "NSPhotoLibraryUsageDescription": "Pick a menu photo from your library."
+        "NSPhotoLibraryUsageDescription": "Pick a menu photo from your library.",
+        "NSLocationWhenInUseUsageDescription": "Pickybara uses your location only when you tap \"Use my location\" to save where a restaurant is."
       }
     },
     "android": {
@@ -51,7 +52,14 @@
           "photosPermission": "Pick a menu photo from your library."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Pickybara uses your location only when you tap \"Use my location\" to save where a restaurant is."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

@@ -1,3 +1,4 @@
+import { Priced, toPHP } from './money';
 import type { HistoryEntry, MenuItem, Mood, Person, Taste } from './types';
 
 export type Scored = {
@@ -59,7 +60,9 @@ export function allergyHits(i: MenuItem, allergies: string[]) {
   return i.allergens.filter((a) => allergies.includes(a));
 }
 
-export function scoreItem(i: MenuItem, t: Taste, mood: Mood, history: HistoryEntry[], learn: boolean): Scored {
+export function scoreItem(item: MenuItem, t: Taste, mood: Mood, history: HistoryEntry[], learn: boolean, cur?: Priced): Scored {
+  // Budgets are in pesos, so foreign prices are converted first. Unknown rate = treat price as unknown.
+  const i = { ...item, price: toPHP(item.price, cur) };
   const reasons: string[] = [];
   const budget = budgetNum(mood.budget || t.budget);
 
@@ -92,17 +95,30 @@ export function scoreItem(i: MenuItem, t: Taste, mood: Mood, history: HistoryEnt
     } else bud = Math.max(10, 80 - Math.round(((i.price - budget) / budget) * 120));
   }
 
-  // Mood
+  // Mood: each picked vibe gets a score, then they're averaged. No vibes = neutral.
+  const vibes = mood.vibes ?? [];
   let moodS = 65;
-  const mt = MOOD_TAGS[mood.vibe] || [];
-  const mHits = i.tags.filter((x) => mt.includes(x));
-  if (mHits.length) {
-    moodS += 15 + 10 * Math.min(2, mHits.length - 1);
-    const label = mood.vibe.toLowerCase();
-    reasons.push(mHits.includes('filling') || mHits.includes('comfort') ? `Filling enough for a ${label} day` : `Good when you want something ${mHits[0].replace('-', ' ')}`);
+  if (vibes.length) {
+    let best: { hits: string[]; vibe: string } | null = null;
+    const per = vibes.map((v) => {
+      let s = 65;
+      const mt = MOOD_TAGS[v] || [];
+      const hits = i.tags.filter((x) => mt.includes(x));
+      if (hits.length) {
+        s += 15 + 10 * Math.min(2, hits.length - 1);
+        if (!best || hits.length > best.hits.length) best = { hits, vibe: v };
+      }
+      if (v === 'Budget' && i.price != null) s = Math.max(40, 100 - Math.round((i.price / budget) * 50));
+      if (v === 'New') s = history.some((h) => h.itemName === i.name) ? 40 : 90;
+      return s;
+    });
+    moodS = per.reduce((a, b) => a + b, 0) / per.length;
+    const b = best as { hits: string[]; vibe: string } | null;
+    if (b) {
+      const label = b.vibe.toLowerCase();
+      reasons.push(b.hits.includes('filling') || b.hits.includes('comfort') ? `Filling enough for a ${label} day` : `Good when you want something ${b.hits[0].replace('-', ' ')}`);
+    }
   }
-  if (mood.vibe === 'Budget' && i.price != null) moodS = Math.max(40, 100 - Math.round((i.price / budget) * 50));
-  if (mood.vibe === 'New') moodS = history.some((h) => h.itemName === i.name) ? 40 : 90;
 
   // Goal
   let goal = 70;
@@ -121,23 +137,57 @@ export function scoreItem(i: MenuItem, t: Taste, mood: Mood, history: HistoryEnt
   if (i.lowConfidence) match = clamp(match - 6);
   const hits = allergyHits(i, t.allergy);
   if (hits.length) match = clamp(match - 40);
-  return { item: i, match, scores, reasons: reasons.slice(0, 4), allergyHits: hits };
+  return { item, match, scores, reasons: reasons.slice(0, 4), allergyHits: hits };
 }
 
-export function recommend(items: MenuItem[], t: Taste, dislikes: string[], mood: Mood, history: HistoryEntry[], learn: boolean): Picks {
+/** Small seeded random generator, so one visit to the results shows a stable set of picks. */
+function rng(seed: number) {
+  let a = Math.floor(seed * 2 ** 31) || 1;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Picks one of the close matches (within CLOSE points of the best, at most 5) instead of
+ * always the single best, weighted so better matches come up more often.
+ */
+const CLOSE = 8;
+function choose(list: Scored[], rand: () => number, avoid?: string): Scored | null {
+  if (!list.length) return null;
+  let near = list.filter((s) => s.match >= list[0].match - CLOSE).slice(0, 5);
+  if (avoid && near.length > 1) near = near.filter((s) => s.item.id !== avoid);
+  const low = Math.min(...near.map((s) => s.match));
+  const weights = near.map((s) => s.match - low + 3);
+  let r = rand() * weights.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < near.length; k++) if ((r -= weights[k]) <= 0) return near[k];
+  return near[0];
+}
+
+export type Vary = { seed: number; avoid?: string };
+
+export function recommend(items: MenuItem[], t: Taste, dislikes: string[], mood: Mood, history: HistoryEntry[], learn: boolean, cur?: Priced, vary?: Vary): Picks {
   const ok = items.filter((i) => !blocked(i, t, dislikes));
-  const scored = ok.map((i) => scoreItem(i, t, mood, history, learn)).sort((a, b) => b.match - a.match);
+  const scored = ok.map((i) => scoreItem(i, t, mood, history, learn, cur)).sort((a, b) => b.match - a.match);
   const safe = scored.filter((s) => !s.allergyHits.length);
   const pool = safe.length ? safe : scored;
   const foods = pool.filter((s) => !s.item.isDrink);
   const drinks = pool.filter((s) => s.item.isDrink);
   const main = mood.mode === 'Drinks' ? drinks : mood.mode === 'Food' ? foods : foods.length ? foods : drinks;
-  const top = main[0] ?? null;
-  const backup = main[1] ?? null;
+  const rand = vary ? rng(vary.seed) : null;
+  const top = rand ? choose(main, rand, vary?.avoid) : (main[0] ?? null);
+  const backup = main.find((s) => s !== top) ?? null;
   let drink: Scored | null = null;
   if (mood.mode === 'Both' && top && !top.item.isDrink) {
-    const left = budgetNum(mood.budget) - (top.item.price ?? 0);
-    drink = drinks.find((d) => d.item.price == null || d.item.price <= Math.max(left, 0)) ?? drinks[0] ?? null;
+    const php = (n: number | null) => toPHP(n, cur);
+    const left = budgetNum(mood.budget) - (php(top.item.price) ?? 0);
+    const fits = drinks.filter((d) => php(d.item.price) == null || (php(d.item.price) ?? 0) <= Math.max(left, 0));
+    const list = fits.length ? fits : drinks;
+    drink = rand ? choose(list, rand) : (list[0] ?? null);
   }
   const ranked = mood.mode === 'Drinks' ? drinks : mood.mode === 'Food' ? foods : scored;
   return { top, backup, drink, ranked };

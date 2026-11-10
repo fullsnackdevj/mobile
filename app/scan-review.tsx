@@ -4,9 +4,11 @@ import { Pressable, Text, View } from 'react-native';
 import { Icon } from '../src/components/Icon';
 import { ItemEditor } from '../src/components/ItemEditor';
 import { Banner, Btn, Card, Field, H3, IconBtn, ListRow, Row, Screen, T, TopBar, XS } from '../src/components/ui';
-import { peso, useCurrentMenu, useStore } from '../src/store';
+import { useCurrentMenu, useStore } from '../src/store';
 import { fonts, useTheme } from '../src/theme';
 import type { MenuItem } from '../src/types';
+import { money } from '../src/money';
+import { CurrencyNote } from '../src/components/CurrencyNote';
 
 export default function ScanReview() {
   const c = useTheme();
@@ -102,6 +104,7 @@ export default function ScanReview() {
           <Banner icon="globe">This menu is already in English.</Banner>
         )
       ) : null}
+      <CurrencyNote menuId={menu.id} />
       <Banner icon="info">
         {menu.items.length
           ? `Found ${menu.items.length} items.${lowCount ? ' Please check anything with a warning.' : ' Tap any item to fix it.'}`
@@ -121,7 +124,7 @@ export default function ScanReview() {
                 <T b style={{ flex: 1 }}>
                   {it.name}
                 </T>
-                <T b>{peso(it.price)}</T>
+                <T b>{money(it.price, menu)}</T>
                 <Icon n="edit" s={18} color={c.muted} />
               </ListRow>
             ))}

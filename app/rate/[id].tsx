@@ -3,17 +3,14 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { Capy } from '../../src/components/Capy';
 import { RouteSheet } from '../../src/components/RouteSheet';
-import { Btn, Chip, Field, H2, Row, XS } from '../../src/components/ui';
+import { Btn, Field, H2, Row, XS } from '../../src/components/ui';
 import { shortDate, useStore } from '../../src/store';
-
-const TAGS = ['Too spicy', 'Too salty', 'Too small', 'Worth it', 'Would pick again'];
 
 export default function RatingPrompt() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const h = useStore((s) => s.history.find((x) => x.id === id));
   const update = useStore((s) => s.updateHistory);
   const [r, setR] = useState<-1 | 0 | 1>(h?.rating || 1);
-  const [tags, setTags] = useState<string[]>(h?.tags ?? []);
   const [note, setNote] = useState(h?.note ?? '');
   if (!h) return null;
 
@@ -32,16 +29,11 @@ export default function RatingPrompt() {
         <Btn grow kind={r === 1 ? 'primary' : 'sec'} icon="thumbup" title="Loved it" onPress={() => setR(1)} style={{ minHeight: 64 }} />
         <Btn grow kind={r === -1 ? 'primary' : 'sec'} icon="thumbdown" title="Not great" onPress={() => setR(-1)} style={{ minHeight: 64 }} />
       </Row>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {TAGS.map((t) => (
-          <Chip key={t} label={t} on={tags.includes(t)} onPress={() => setTags(tags.includes(t) ? tags.filter((x) => x !== t) : [...tags, t])} />
-        ))}
-      </View>
       <Field placeholder="Add a note (optional)" value={note} onChangeText={setNote} />
       <Btn
         title="Save rating"
         onPress={() => {
-          update(h.id, { rating: r, tags, note });
+          update(h.id, { rating: r, note });
           router.back();
         }}
       />

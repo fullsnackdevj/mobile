@@ -6,13 +6,33 @@ import { api, Quota } from './api';
 import { uid, useStore } from './store';
 import type { Menu, MenuItem } from './types';
 
-/** Shrink a photo so uploads stay small (menus stay readable at 1600px). */
+// The server accepts up to 1.5M base64 characters per photo; stay well under it.
+const TARGET_CHARS = 1_100_000;
+// Longest side, then quality, tried in order until the photo is small enough.
+const STEPS: [number, number][] = [
+  [2000, 0.7],
+  [1600, 0.65],
+  [1400, 0.55],
+  [1200, 0.5],
+  [1000, 0.45],
+];
+
+/**
+ * Shrink a photo so it always fits the upload limit. The longest side is capped (so tall
+ * or panorama shots don't stay huge), never enlarged, and quality steps down if needed.
+ */
 export async function toBase64Jpeg(uri: string): Promise<string> {
-  const ctx = ImageManipulator.manipulate(uri);
-  ctx.resize({ width: 1600 });
-  const img = await ctx.renderAsync();
-  const out = await img.saveAsync({ format: SaveFormat.JPEG, compress: 0.7, base64: true });
-  return out.base64 ?? '';
+  const orig = await ImageManipulator.manipulate(uri).renderAsync();
+  const long = Math.max(orig.width, orig.height);
+  let out = '';
+  for (const [side, compress] of STEPS) {
+    const ctx = ImageManipulator.manipulate(uri);
+    if (long > side) ctx.resize(orig.width >= orig.height ? { width: side } : { height: side });
+    const img = await ctx.renderAsync();
+    out = (await img.saveAsync({ format: SaveFormat.JPEG, compress, base64: true })).base64 ?? '';
+    if (out && out.length <= TARGET_CHARS) return out;
+  }
+  return out; // smallest attempt; the server explains if it's still too big
 }
 
 export async function pickFromGallery(): Promise<boolean> {
@@ -23,8 +43,10 @@ export async function pickFromGallery(): Promise<boolean> {
   return true;
 }
 
-export function menuFromScan(restaurant: string, language: string, items: Omit<MenuItem, 'id'>[], demo?: boolean, photos?: string[]): Menu {
+export function menuFromScan(restaurant: string, language: string, items: Omit<MenuItem, 'id'>[], demo?: boolean, photos?: string[], currency = 'PHP', rateToPHP: number | null = 1): Menu {
   return {
+    currency,
+    rateToPHP: currency === 'PHP' ? 1 : rateToPHP,
     id: uid(),
     restaurant: restaurant || 'Untitled menu',
     language,
@@ -80,4 +102,5 @@ export function useQuota() {
 }
 
 /** Choices on the camera screen that carry into the scan request. */
-export const scanPrefs = { language: 'Auto' };
+/** spot: when scanning from a spot's page, the new menu is filed under that spot's name. */
+export const scanPrefs: { language: string; spot?: string } = { language: 'Auto' };
